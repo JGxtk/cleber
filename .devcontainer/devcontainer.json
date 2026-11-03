@@ -1,0 +1,10 @@
+{
+  "name": "Compilador Cleber (Java + JavaCC)",
+  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "postCreateCommand": "chmod +x build.sh cleber.sh testar.sh && ./build.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["vscjava.vscode-java-pack"]
+    }
+  }
+}
