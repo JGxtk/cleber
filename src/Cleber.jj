@@ -1,0 +1,174 @@
+/*
+ * Compilador da linguagem Cleber
+ * Projeto A3 - Teoria da Computação e Compiladores
+ *
+ * MARCO 2 - Prova de conceito:
+ *   - especificação léxica completa
+ *   - comando de atribuição com expressões aritméticas
+ *     (+, -, *, /, parênteses e menos unário, com precedência)
+ */
+
+options {
+  STATIC = false;
+  UNICODE_INPUT = true;
+}
+
+PARSER_BEGIN(Cleber)
+
+import java.io.*;
+
+public class Cleber {
+
+  public static void main(String[] args) {
+    if (args.length == 0) {
+      System.err.println("Uso: java Cleber arquivo.clb");
+      System.exit(2);
+    }
+
+    try {
+      Cleber parser = new Cleber(new FileInputStream(args[0]), "UTF-8");
+      parser.programa();
+      System.out.println("OK: o programa '" + args[0] + "' é válido em Cleber.");
+      System.exit(0);
+
+    } catch (FileNotFoundException e) {
+      System.err.println("Arquivo não encontrado: " + args[0]);
+      System.exit(2);
+    } catch (ParseException e) {
+      Token t = e.currentToken.next;
+      System.err.println("Erro sintático na linha " + t.beginLine
+          + ", coluna " + t.beginColumn + ": encontrado '" + t.image + "'");
+      System.exit(1);
+    } catch (TokenMgrError e) {
+      System.err.println("Erro léxico: " + e.getMessage());
+      System.exit(1);
+    }
+  }
+}
+
+PARSER_END(Cleber)
+
+/* =====================================================================
+ *  ESPECIFICAÇÃO LÉXICA
+ * ===================================================================== */
+
+/* Espaços, tabulações e quebras de linha são descartados */
+SKIP : {
+    " " | "\t" | "\n" | "\r" | "\f"
+}
+
+/* Comentário de linha: // até o fim da linha */
+SKIP : {
+    < COMENTARIO_LINHA: "//" (~["\n", "\r"])* >
+}
+
+// Comentário de bloco: abre com barra-asterisco e fecha com asterisco-barra.
+// Usa um estado léxico separado (EM_COMENTARIO) para consumir tudo até o fechamento.
+MORE : {
+    "/*" : EM_COMENTARIO
+}
+<EM_COMENTARIO> SKIP : {
+    "*/" : DEFAULT
+}
+<EM_COMENTARIO> MORE : {
+    < ~[] >
+}
+
+/* Palavras reservadas - precisam vir ANTES de <ID> */
+TOKEN : {
+    < CLEBER:      "cleber" >
+  | < INICIO:      "inicio" >
+  | < FIM:         "fim" >
+  | < SE:          "se" >
+  | < ENTAO:       "entao" >
+  | < SENAO:       "senao" >
+  | < FIMSE:       "fimse" >
+  | < ENQUANTO:    "enquanto" >
+  | < FACA:        "faca" >
+  | < FIMENQUANTO: "fimenquanto" >
+  | < REPITA:      "repita" >
+  | < ATE:         "ate" >
+  | < LEIA:        "leia" >
+  | < ESCREVA:     "escreva" >
+}
+
+/* Operadores e pontuação */
+TOKEN : {
+    < IGUAL:     "==" >
+  | < DIFERENTE: "!=" >
+  | < MENOR_IG:  "<=" >
+  | < MAIOR_IG:  ">=" >
+  | < MENOR:     "<" >
+  | < MAIOR:     ">" >
+  | < ATRIB:     "=" >
+  | < MAIS:      "+" >
+  | < MENOS:     "-" >
+  | < VEZES:     "*" >
+  | < DIVIDE:    "/" >
+  | < APAR:      "(" >
+  | < FPAR:      ")" >
+  | < PV:        ";" >
+  | < VIRG:      "," >
+}
+
+/* Literais e identificadores */
+TOKEN : {
+    < NUM:    (<DIGITO>)+ ("." (<DIGITO>)+)? >
+  | < STRING: "\"" (~["\"", "\n", "\r"])* "\"" >
+  | < ID:     <LETRA> (<LETRA> | <DIGITO>)* >
+  | < #LETRA:  ["a"-"z", "A"-"Z", "_"] >
+  | < #DIGITO: ["0"-"9"] >
+}
+
+/* =====================================================================
+ *  ESPECIFICAÇÃO SINTÁTICA
+ * ===================================================================== */
+
+/* programa ::= "cleber" ID "inicio" lista_comandos "fim" */
+void programa() : {}
+{
+    <CLEBER> <ID> <INICIO>
+    listaComandos()
+    <FIM>
+    <EOF>
+}
+
+/* lista_comandos ::= { comando } */
+void listaComandos() : {}
+{
+    ( comando() )*
+}
+
+/* comando ::= atribuicao
+ * (as demais alternativas entram nos próximos marcos) */
+void comando() : {}
+{
+    atribuicao()
+}
+
+/* atribuicao ::= ID "=" expressao_simples ";" */
+void atribuicao() : {}
+{
+    <ID> <ATRIB> expressaoSimples() <PV>
+}
+
+/* expressao_simples ::= termo { ("+" | "-") termo }      (menor precedência) */
+void expressaoSimples() : {}
+{
+    termo() ( ( <MAIS> | <MENOS> ) termo() )*
+}
+
+/* termo ::= fator { ("*" | "/") fator }                   (maior precedência) */
+void termo() : {}
+{
+    fator() ( ( <VEZES> | <DIVIDE> ) fator() )*
+}
+
+/* fator ::= "(" expressao_simples ")" | NUM | ID | "-" fator */
+void fator() : {}
+{
+    <APAR> expressaoSimples() <FPAR>
+  | <NUM>
+  | <ID>
+  | <MENOS> fator()
+}
